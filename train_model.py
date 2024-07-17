@@ -16,6 +16,8 @@ if __name__ == "__main__":
     parser.add_argument('--run_name', type=str,
                         help='Path to save model checkpoint ',
                         default='training_run')
+    parser.add_argument('--cpus', type=int, help='Number of cpus to use',
+                        default=4)
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,10 +44,10 @@ if __name__ == "__main__":
 
     # setup dataloaders
     train_loader = DataLoader(train_dataset, batch_size=20, shuffle=True,
-                              num_workers=10, prefetch_factor=4,
+                              num_workers=args.cpus, prefetch_factor=4,
                               pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=20, shuffle=False,
-                            num_workers=10, prefetch_factor=4,
+                            num_workers=args.cpus, prefetch_factor=4,
                             pin_memory=True)
 
     logging.basicConfig(filename=args.run_name + '.log', level=logging.INFO,
