@@ -3,9 +3,9 @@ from os.path import join as pjoin
 import torchvision.transforms.v2 as v2
 import torch
 from torch.utils.data import DataLoader
-import torch.nn as nn
 import argparse
 import logging
+from train_logger import Logger
 import os
 
 if __name__ == "__main__":
@@ -30,6 +30,7 @@ if __name__ == "__main__":
 
     checkpoint_path = args.run_name + ".pth"
 
+    logger = Logger(args.run_name + '.csv')
     # def transforms
     train_transform = v2.Compose([
         v2.ToImage(),
@@ -83,3 +84,5 @@ if __name__ == "__main__":
 
         loss_dict = model.validate(val_loader, device=device)
         logging.info(f"Validation Loss, {epoch+1}/{args.epochs}: {loss_dict}")
+
+        logger.log_epoch(epoch, loss_dict)
