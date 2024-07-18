@@ -81,9 +81,10 @@ if __name__ == "__main__":
         scheduler.step(val_loss)
 
         logger.log_epoch(epoch, {'train_loss': train_loss,
-                                 'val_loss': val_loss})
+                                 'val_loss': val_loss,
+                                 'lr': scheduler.get_last_lr()})
         logging.info(f"Epoch {epoch} train_loss: {train_loss} val_loss: "
-                     f"{val_loss}")
+                     f"{val_loss} lr: {scheduler.get_last_lr()}")
 
         torch.save({'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),

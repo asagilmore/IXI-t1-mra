@@ -96,12 +96,15 @@ if __name__ == "__main__":
         logging.info(f"Train Loss, {epoch+1}/{args.epochs}: {loss_dict}")
 
         loss_dict = model.validate(val_loader, device=device)
-        logging.info(f"Validation Loss, {epoch+1}/{args.epochs}: {loss_dict}")
-
-        logger.log_epoch(epoch, loss_dict)
 
         critic_scheduler.step(loss_dict['critic_loss'])
         generator_scheduler.step(loss_dict['total_gen_loss'])
+
+        loss_dict['critic_lr'] = critic_scheduler.get_last_lr()
+        loss_dict['generator_lr'] = generator_scheduler.get_last_lr()
+        logging.info(f"Validation Loss, {epoch+1}/{args.epochs}: {loss_dict}")
+
+        logger.log_epoch(epoch, loss_dict)
 
         torch.save({
             "model_state_dict": model.state_dict(),
