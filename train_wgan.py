@@ -65,6 +65,15 @@ if __name__ == "__main__":
     generator_optimizer = torch.optim.Adam(model.generator.parameters(),
                                            lr=1e-4)
 
+    critic_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                                                critic_optimizer,
+                                                mode='min',
+                                                patience=4)
+    generator_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                                                generator_optimizer,
+                                                mode='min',
+                                                patience=4)
+
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -72,6 +81,10 @@ if __name__ == "__main__":
                          checkpoint['critic_optimizer_state_dict'])
         generator_optimizer.load_state_dict(
                             checkpoint['generator_optimizer_state_dict'])
+        critic_scheduler.load_state_dict(
+                            checkpoint['critic_scheduler_state_dict'])
+        generator_scheduler.load_state_dict(
+                            checkpoint['generator_scheduler_state_dict'])
         start_epoch = checkpoint['epoch']
     else:
         start_epoch = 0
@@ -86,3 +99,15 @@ if __name__ == "__main__":
         logging.info(f"Validation Loss, {epoch+1}/{args.epochs}: {loss_dict}")
 
         logger.log_epoch(epoch, loss_dict)
+
+        critic_scheduler.step(loss_dict['critic_loss'])
+        generator_scheduler.step(loss_dict['total_gen_loss'])
+
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "critic_optimizer_state_dict": critic_optimizer.state_dict(),
+            "generator_optimizer_state_dict": generator_optimizer.state_dict(),
+            "critic_scheduler_state_dict": critic_scheduler.state_dict(),
+            "generator_scheduler_state_dict": generator_scheduler.state_dict(),
+            "epoch": epoch
+        }, checkpoint_path)
