@@ -95,7 +95,7 @@ if __name__ == "__main__":
                                      device=device)
         logging.info(f"Train Loss, {epoch+1}/{args.epochs}: {loss_dict}")
 
-        loss_dict = model.validate(val_loader, device=device)
+        loss_dict = model.valid_self(val_loader, device=device)
 
         critic_scheduler.step(loss_dict['critic_loss'])
         generator_scheduler.step(loss_dict['total_gen_loss'])

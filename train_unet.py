@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     model = nt.models.UNet(1, 1).to(device)
 
-    optimizer = torch.optim.Adam(model.critic.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                                                 optimizer,
                                                 mode='min',
@@ -75,8 +75,8 @@ if __name__ == "__main__":
         start_epoch = 0
 
     for epoch in range(start_epoch, args.epochs):
-        train_loss = model.train_self(train_loader, criterion, optimizer)
-        val_loss = model.validate_self(val_loader, criterion)
+        train_loss = model.train_self(train_loader, optimizer, criterion)
+        val_loss = model.valid_self(val_loader, criterion)
 
         scheduler.step(val_loss)
 
