@@ -49,10 +49,6 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=20, shuffle=True,
                               num_workers=args.cpus, prefetch_factor=4,
                               pin_memory=True)
-    second_train_loader = DataLoader(train_dataset, batch_size=20,
-                                     shuffle=True, num_workers=args.cpus,
-                                     prefetch_factor=4, pin_memory=True)
-
     val_loader = DataLoader(val_dataset, batch_size=20, shuffle=False,
                             num_workers=args.cpus, prefetch_factor=4,
                             pin_memory=True)
@@ -60,37 +56,52 @@ if __name__ == "__main__":
     logging.basicConfig(filename=args.run_name + '.log', level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(message)s')
 
-    model = nt.models.WassersteinGAN().to(device)
-    critic_optimizer = torch.optim.Adam(model.critic.parameters(), lr=1e-4)
-    generator_optimizer = torch.optim.Adam(model.generator.parameters(),
-                                           lr=1e-4)
+    model = nt.models.UNet(1, 1).to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                                                optimizer,
+                                                mode='min',
+                                                patience=5)
+
+    criterion = nt.losses.CombinedLoss()
+    criterion.add_loss(torch.nn.MSELoss(), 1)
+    criterion.add_loss(nt.losses.PerceptualLoss(), 0.1)
+
+    epoch_no_improve = 0
+    best_val_loss = float('inf')
+    added_histogram = False
 
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         model.load_state_dict(checkpoint['model_state_dict'])
-        critic_optimizer.load_state_dict(
-                         checkpoint['critic_optimizer_state_dict'])
-        generator_optimizer.load_state_dict(
-                            checkpoint['generator_optimizer_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         start_epoch = checkpoint['epoch']
     else:
         start_epoch = 0
 
     for epoch in range(start_epoch, args.epochs):
-        loss_dict = model.train_self(train_loader, second_train_loader,
-                                     critic_optimizer, generator_optimizer,
-                                     device=device)
-        logging.info(f"Train Loss, {epoch+1}/{args.epochs}: {loss_dict}")
+        train_loss = model.train_self(train_loader, optimizer, criterion)
+        val_loss = model.valid_self(val_loader, criterion)
 
-        loss_dict = model.valid_self(val_loader, device=device)
+        if added_histogram:
+            scheduler.step(val_loss)
+        else:
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                epoch_no_improve = 0
+            else:
+                epoch_no_improve += 1
+                if epoch_no_improve >= 5:
+                    criterion.add_loss(nt.losses.HistogramLoss(), 0.5)
+                    added_histogram = True
 
-        logging.info(f"Validation Loss, {epoch+1}/{args.epochs}: {loss_dict}")
+        logger.log_epoch(epoch, {'train_loss': train_loss,
+                                 'val_loss': val_loss,
+                                 'lr': scheduler.get_last_lr()})
+        logging.info(f"Epoch {epoch} train_loss: {train_loss} val_loss: "
+                     f"{val_loss} lr: {scheduler.get_last_lr()}")
 
-        logger.log_epoch(epoch, loss_dict)
-
-        torch.save({
-            "model_state_dict": model.state_dict(),
-            "critic_optimizer_state_dict": critic_optimizer.state_dict(),
-            "generator_optimizer_state_dict": generator_optimizer.state_dict(),
-            "epoch": epoch
-        }, checkpoint_path)
+        torch.save({'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'epoch': epoch}, checkpoint_path)
